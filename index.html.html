@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Humber Bay Arch Bridge · Structural Analysis · MPM2D</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --steel: #1a2a3a;
+    --deep: #0d1821;
+    --water: #1e4d6b;
+    --water-light: #2a7da8;
+    --sky: #c8dff0;
+    --gold: #d4a843;
+    --gold-light: #f0c866;
+    --rust: #c0522a;
+    --concrete: #b0a898;
+    --grass: #4a7c3f;
+    --white: #f5f0eb;
+    --panel: rgba(26,42,58,0.92);
+    --accent: #4fc3f7;
+    --correct: #4caf82;
+    --wrong: #e05c5c;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--deep);
+    color: var(--white);
+    font-family: 'Outfit', sans-serif;
+    font-weight: 300;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ─── HEADER ─── */
+  header {
+    background: linear-gradient(135deg, var(--steel) 0%, #0f2030 100%);
+    border-bottom: 2px solid var(--gold);
+    padding: 24px 40px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  .crest {
+    width: 54px; height: 54px;
+    background: var(--gold);
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; flex-shrink: 0;
+  }
+  header h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(1.1rem, 2.5vw, 1.6rem);
+    color: var(--gold-light);
+    line-height: 1.2;
+  }
+  header p {
+    font-size: 0.78rem;
+    color: var(--concrete);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+  .badge {
+    margin-left: auto;
+    background: var(--rust);
+    color: var(--white);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 2px;
+  }
+
+  /* ─── BRIEF BANNER ─── */
+  .brief-banner {
+    background: linear-gradient(90deg, #162030 0%, #1a3048 50%, #162030 100%);
+    border-left: 4px solid var(--gold);
+    margin: 28px 40px 0;
+    padding: 18px 24px;
+    border-radius: 0 4px 4px 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .brief-banner::before {
+    content: '';
+    position: absolute; top: 0; right: 0; width: 200px; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(212,168,67,0.04));
+  }
+  .brief-banner h2 {
+    font-size: 0.68rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 8px;
+  }
+  .brief-banner p { font-size: 0.9rem; color: #c8d8e8; line-height: 1.7; }
+  .formula-pill {
+    display: inline-block;
+    background: rgba(79,195,247,0.12);
+    border: 1px solid rgba(79,195,247,0.3);
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+    font-size: 1rem;
+    padding: 4px 14px;
+    border-radius: 3px;
+    margin: 10px 0 4px;
+  }
+
+  /* ─── MAIN GRID ─── */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 0;
+    margin: 24px 40px;
+    min-height: 520px;
+  }
+
+  /* ─── SIMULATOR CANVAS AREA ─── */
+  .sim-area {
+    background: linear-gradient(180deg, #0a1e30 0%, #0d2438 60%, #0a1520 100%);
+    border-radius: 6px 0 0 6px;
+    border: 1px solid rgba(79,195,247,0.15);
+    padding: 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .sim-title {
+    font-size: 0.65rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    padding: 12px 18px;
+    border-bottom: 1px solid rgba(79,195,247,0.1);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .live-dot {
+    width: 6px; height: 6px;
+    background: var(--correct);
+    border-radius: 50%;
+    box-shadow: 0 0 6px var(--correct);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  canvas#bridge { display: block; width: 100%; }
+
+  .coord-strip {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: rgba(10,20,32,0.85);
+    backdrop-filter: blur(4px);
+    padding: 8px 18px;
+    display: flex; gap: 24px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--concrete);
+    border-top: 1px solid rgba(79,195,247,0.1);
+  }
+  .coord-strip span { color: var(--accent); }
+
+  /* ─── CONTROLS PANEL ─── */
+  .controls-panel {
+    background: var(--panel);
+    backdrop-filter: blur(8px);
+    border-radius: 0 6px 6px 0;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-left: none;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow-y: auto;
+  }
+  .panel-section-title {
+    font-size: 0.62rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(212,168,67,0.2);
+  }
+
+  .slider-group { display: flex; flex-direction: column; gap: 6px; }
+  .slider-label {
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .slider-label span:first-child {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--sky);
+  }
+  .slider-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--accent);
+    min-width: 40px;
+    text-align: right;
+  }
+  input[type=range] {
+    width: 100%;
+    -webkit-appearance: none;
+    height: 4px;
+    background: rgba(79,195,247,0.15);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 6px rgba(79,195,247,0.5);
+    transition: transform 0.15s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.3); }
+
+  .info-box {
+    background: rgba(10,20,32,0.6);
+    border: 1px solid rgba(79,195,247,0.15);
+    border-radius: 4px;
+    padding: 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    line-height: 1.9;
+    color: var(--concrete);
+  }
+  .info-box .lbl { color: var(--sky); }
+  .info-box .val { color: var(--gold-light); }
+  .info-box .val.neg { color: var(--rust); }
+
+  .reset-btn {
+    background: transparent;
+    border: 1px solid rgba(212,168,67,0.4);
+    color: var(--gold);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+  }
+  .reset-btn:hover {
+    background: rgba(212,168,67,0.1);
+    border-color: var(--gold);
+  }
+
+  /* ─── ACTIVITY PHASES ─── */
+  .phases { margin: 0 40px 32px; display: flex; flex-direction: column; gap: 20px; }
+
+  .phase-card {
+    background: linear-gradient(135deg, rgba(26,42,58,0.95) 0%, rgba(15,32,48,0.95) 100%);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .phase-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 22px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+  }
+  .phase-header:hover { background: rgba(79,195,247,0.04); }
+  .phase-num {
+    width: 32px; height: 32px;
+    background: var(--gold);
+    color: var(--deep);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+  }
+  .phase-header h3 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.05rem;
+    color: var(--white);
+    flex: 1;
+  }
+  .phase-type {
+    font-size: 0.62rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--concrete);
+  }
+  .phase-chevron {
+    color: var(--gold);
+    font-size: 1.1rem;
+    transition: transform 0.3s;
+  }
+  .phase-card.open .phase-chevron { transform: rotate(180deg); }
+
+  .phase-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease;
+  }
+  .phase-card.open .phase-body { max-height: 2000px; }
+  .phase-body-inner { padding: 0 22px 22px; }
+
+  /* ─── PHASE 1: DISCUSSION ─── */
+  .discussion-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 14px;
+    margin-top: 14px;
+  }
+  .prompt-card {
+    background: rgba(10,20,32,0.5);
+    border: 1px solid rgba(79,195,247,0.12);
+    border-radius: 4px;
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .prompt-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; width: 3px; height: 100%;
+    background: var(--gold);
+  }
+  .prompt-q {
+    font-size: 0.78rem;
+    font-style: italic;
+    color: var(--sky);
+    line-height: 1.55;
+    margin-bottom: 10px;
+  }
+  .reveal-btn {
+    background: transparent;
+    border: 1px solid rgba(212,168,67,0.3);
+    color: var(--gold);
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 5px 12px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .reveal-btn:hover { background: rgba(212,168,67,0.1); }
+  .hint-text {
+    display: none;
+    margin-top: 10px;
+    font-size: 0.8rem;
+    color: var(--concrete);
+    line-height: 1.6;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    padding-top: 10px;
+  }
+  .hint-text.show { display: block; }
+
+  /* ─── PHASE 2: CALCULATION ─── */
+  .steps-area { margin-top: 14px; display: flex; flex-direction: column; gap: 14px; }
+  .step-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .step-num {
+    width: 24px; height: 24px;
+    background: rgba(79,195,247,0.15);
+    border: 1px solid var(--accent);
+    border-radius: 50%;
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .step-text { font-size: 0.88rem; color: var(--sky); line-height: 1.65; }
+  .step-text code {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.82rem;
+    color: var(--accent);
+    background: rgba(79,195,247,0.08);
+    padding: 1px 6px;
+    border-radius: 2px;
+  }
+
+  .answer-inputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-top: 16px;
+  }
+  .input-group { display: flex; flex-direction: column; gap: 6px; }
+  .input-group label {
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--concrete);
+  }
+  .input-group input {
+    background: rgba(10,20,32,0.6);
+    border: 1px solid rgba(79,195,247,0.2);
+    border-radius: 3px;
+    color: var(--white);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.9rem;
+    padding: 8px 12px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .input-group input:focus { border-color: var(--accent); }
+  .input-group input.correct { border-color: var(--correct); background: rgba(76,175,130,0.08); }
+  .input-group input.wrong { border-color: var(--wrong); background: rgba(224,92,92,0.08); }
+
+  .check-btn {
+    grid-column: 1 / -1;
+    background: linear-gradient(135deg, rgba(212,168,67,0.2), rgba(212,168,67,0.1));
+    border: 1px solid var(--gold);
+    color: var(--gold-light);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .check-btn:hover { background: rgba(212,168,67,0.25); }
+  .feedback-box {
+    grid-column: 1 / -1;
+    padding: 12px;
+    border-radius: 3px;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    display: none;
+  }
+  .feedback-box.show { display: block; }
+  .feedback-box.ok { background: rgba(76,175,130,0.1); border: 1px solid var(--correct); color: #8fdbbf; }
+  .feedback-box.err { background: rgba(224,92,92,0.08); border: 1px solid var(--wrong); color: #f0aaaa; }
+
+  /* ─── PHASE 3: REPORT ─── */
+  .report-frame { margin-top: 14px; }
+  .report-scaffold {
+    background: rgba(245,240,235,0.04);
+    border: 1px solid rgba(245,240,235,0.1);
+    border-radius: 4px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .report-scaffold p {
+    font-size: 0.82rem;
+    color: var(--concrete);
+    line-height: 1.7;
+    margin-bottom: 8px;
+  }
+  .report-scaffold p strong { color: var(--sky); }
+  textarea.report-input {
+    width: 100%;
+    background: rgba(10,20,32,0.6);
+    border: 1px solid rgba(79,195,247,0.2);
+    border-radius: 3px;
+    color: var(--white);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.88rem;
+    line-height: 1.7;
+    padding: 12px;
+    resize: vertical;
+    min-height: 120px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  textarea.report-input:focus { border-color: var(--accent); }
+  .word-count {
+    font-size: 0.7rem;
+    color: var(--concrete);
+    text-align: right;
+    margin-top: 4px;
+  }
+  .checklist { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .check-item {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    font-size: 0.83rem;
+    color: var(--concrete);
+  }
+  .check-item input[type=checkbox] {
+    width: 16px; height: 16px;
+    accent-color: var(--gold);
+    cursor: pointer;
+  }
+  .check-item.checked { color: var(--white); }
+
+  /* ─── FORMULA REFERENCE ─── */
+  .ref-strip {
+    margin: 0 40px 32px;
+    background: linear-gradient(90deg, rgba(26,42,58,0.8), rgba(15,32,48,0.8));
+    border: 1px solid rgba(212,168,67,0.2);
+    border-radius: 6px;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+  .ref-title {
+    font-size: 0.62rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--gold);
+    flex-shrink: 0;
+  }
+  .ref-formula {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.88rem;
+    color: var(--sky);
+    background: rgba(10,20,32,0.4);
+    border: 1px solid rgba(79,195,247,0.12);
+    border-radius: 3px;
+    padding: 6px 14px;
+  }
+  .ref-formula span { color: var(--gold-light); }
+
+  /* ─── FOOTER ─── */
+  footer {
+    text-align: center;
+    padding: 20px;
+    font-size: 0.72rem;
+    color: rgba(176,168,152,0.5);
+    letter-spacing: 0.08em;
+    border-top: 1px solid rgba(255,255,255,0.04);
+    margin-top: 8px;
+  }
+
+  /* ─── Responsive ─── */
+  @media (max-width: 860px) {
+    header { padding: 16px 20px; }
+    .brief-banner, .main-grid, .phases, .ref-strip { margin-left: 16px; margin-right: 16px; }
+    .main-grid { grid-template-columns: 1fr; }
+    .sim-area { border-radius: 6px 6px 0 0; }
+    .controls-panel { border-radius: 0 0 6px 6px; border-left: 1px solid rgba(255,255,255,0.07); border-top: none; }
+    .answer-inputs { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="crest">🍁</div>
+  <div>
+    <h1>Humber Bay Arch Bridge · Structural Analysis</h1>
+    <p>MPM2D · Quadratics Unit · Toronto Transportation Services</p>
+  </div>
+  <div class="badge">Ontario Curriculum</div>
+</header>
+
+<!-- PROJECT BRIEF -->
+<div class="brief-banner">
+  <h2>📋 Project Brief — City of Toronto Engineering Division</h2>
+  <p>The City of Toronto requires a structural analysis for a new secondary pedestrian pathway mirroring the iconic Humber Bay Arch Bridge near Lake Ontario. Preliminary surveying software has generated the following structural model:</p>
+  <div class="formula-pill">h(x) = −0.01x² + 1.2x + 4</div>
+  <p>where <strong>h(x)</strong> is the arch height in metres above water level, and <strong>x</strong> is the horizontal distance in metres from the western observation deck.</p>
+</div>
+
+<!-- FORMULA REFERENCE STRIP -->
+<div class="ref-strip">
+  <div class="ref-title">📐 Formula Reference</div>
+  <div class="ref-formula">h(x) = <span>a</span>x² + <span>b</span>x + <span>c</span></div>
+  <div class="ref-formula">x = <span>−b ± √(b²−4ac)</span> / 2a</div>
+  <div class="ref-formula">Discriminant = <span>b²−4ac</span></div>
+</div>
+
+<!-- MAIN GRID: SIMULATOR + CONTROLS -->
+<div class="main-grid">
+  <div class="sim-area">
+    <div class="sim-title">
+      <span>🔭 Bridge Arch Simulator — Live Structural Model</span>
+      <div class="live-dot"></div>
+    </div>
+    <canvas id="bridge" width="700" height="380"></canvas>
+    <div class="coord-strip">
+      <div>Vertex: (<span id="vx">—</span>, <span id="vy">—</span>) m</div>
+      <div>Root 1: x = <span id="r1">—</span> m</div>
+      <div>Root 2: x = <span id="r2">—</span> m</div>
+      <div>Span: <span id="span">—</span> m</div>
+    </div>
+  </div>
+
+  <div class="controls-panel">
+    <div>
+      <div class="panel-section-title">⚙ Coefficient Controls</div>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div class="slider-group">
+          <div class="slider-label">
+            <span>a (leading)</span>
+            <span class="slider-value" id="aVal">−0.01</span>
+          </div>
+          <input type="range" id="slA" min="-0.05" max="-0.002" step="0.001" value="-0.01">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label">
+            <span>b (linear)</span>
+            <span class="slider-value" id="bVal">1.2</span>
+          </div>
+          <input type="range" id="slB" min="0.2" max="2.5" step="0.05" value="1.2">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label">
+            <span>c (constant)</span>
+            <span class="slider-value" id="cVal">4</span>
+          </div>
+          <input type="range" id="slC" min="0" max="10" step="0.5" value="4">
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel-section-title">📊 Structural Analysis</div>
+      <div class="info-box" id="infoBox">
+        <div><span class="lbl">Equation: </span><span class="val" id="iEq">—</span></div>
+        <div><span class="lbl">Max height: </span><span class="val" id="iMax">—</span></div>
+        <div><span class="lbl">Y-intercept: </span><span class="val" id="iYint">—</span></div>
+        <div><span class="lbl">Disc. (b²−4ac): </span><span class="val" id="iDisc">—</span></div>
+        <div><span class="lbl">Real roots: </span><span class="val" id="iRoots">—</span></div>
+      </div>
+    </div>
+
+    <button class="reset-btn" onclick="resetToDesign()">↺ Reset to City Design</button>
+
+    <div style="font-size:0.75rem;color:var(--concrete);line-height:1.6;border-top:1px solid rgba(255,255,255,0.06);padding-top:12px;">
+      Observe how adjusting each coefficient changes the arch curvature, maximum height, foundation positions, and total span. Note when the discriminant becomes negative — what does this mean structurally?
+    </div>
+  </div>
+</div>
+
+<!-- ACTIVITY PHASES -->
+<div class="phases">
+
+  <!-- PHASE 1 -->
+  <div class="phase-card" id="phase1">
+    <div class="phase-header" onclick="togglePhase('phase1')">
+      <div class="phase-num">1</div>
+      <div>
+        <div class="phase-type">👥 Collaborative · Partner Discussion</div>
+        <h3>Structural Theory — Interpreting the Model</h3>
+      </div>
+      <span class="phase-chevron">▾</span>
+    </div>
+    <div class="phase-body">
+      <div class="phase-body-inner">
+        <p style="font-size:0.88rem;color:var(--concrete);line-height:1.7;margin-bottom:4px;">
+          Before touching any calculator, discuss the following with your engineering partner. Use the simulator to visualize each concept as you discuss it.
+        </p>
+        <div class="discussion-grid">
+          <div class="prompt-card">
+            <div class="prompt-q">"What does the constant value <strong>c = 4</strong> represent in the physical environment of this bridge?"</div>
+            <button class="reveal-btn" onclick="revealHint(this)">Reveal Hint</button>
+            <div class="hint-text">The constant <em>c</em> is the y-intercept — the height of the arch at x = 0, i.e., directly at the western observation deck. Since h(0) = 4, the arch begins 4 metres above water level at that point. This represents the elevation of the deck above the Humber River.</div>
+          </div>
+          <div class="prompt-card">
+            <div class="prompt-q">"Why must the leading coefficient <strong>a</strong> be negative for this bridge design?"</div>
+            <button class="reveal-btn" onclick="revealHint(this)">Reveal Hint</button>
+            <div class="hint-text">A negative <em>a</em> value produces a downward-opening parabola — an arch shape. If <em>a</em> were positive, the parabola would open upward (like a valley or cable), which cannot model an arch bridge that rises above the water and descends to anchoring points.</div>
+          </div>
+          <div class="prompt-card">
+            <div class="prompt-q">"Which mathematical features of this parabola represent the concrete foundation points at water level?"</div>
+            <button class="reveal-btn" onclick="revealHint(this)">Reveal Hint</button>
+            <div class="hint-text">The <strong>x-intercepts (roots/zeros)</strong> of h(x) are where h(x) = 0 — where the arch height equals zero, meaning the arch meets water level. These are precisely the locations where the steel arch anchors into the riverbanks.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHASE 2 -->
+  <div class="phase-card" id="phase2">
+    <div class="phase-header" onclick="togglePhase('phase2')">
+      <div class="phase-num">2</div>
+      <div>
+        <div class="phase-type">✏ Independent · Quadratic Formula Application</div>
+        <h3>Foundation Coordinates — Applying the Quadratic Formula</h3>
+      </div>
+      <span class="phase-chevron">▾</span>
+    </div>
+    <div class="phase-body">
+      <div class="phase-body-inner">
+        <div class="steps-area">
+          <div class="step-row">
+            <div class="step-num">1</div>
+            <div class="step-text">Set h(x) = 0: <code>0 = −0.01x² + 1.2x + 4</code><br>Identify: <code>a = −0.01</code>, <code>b = 1.2</code>, <code>c = 4</code></div>
+          </div>
+          <div class="step-row">
+            <div class="step-num">2</div>
+            <div class="step-text">Calculate the discriminant: <code>b² − 4ac = (1.2)² − 4(−0.01)(4)</code><br>= <code>1.44 + 0.16 = 1.60</code></div>
+          </div>
+          <div class="step-row">
+            <div class="step-num">3</div>
+            <div class="step-text">Apply the quadratic formula: <code>x = (−1.2 ± √1.60) / (2 × −0.01)</code><br>Evaluate both roots and round to 2 decimal places.</div>
+          </div>
+          <div class="step-row">
+            <div class="step-num">4</div>
+            <div class="step-text">Enter your calculated foundation coordinates below. One root will be negative — enter the exact value. You will interpret its physical meaning in Phase 3.</div>
+          </div>
+        </div>
+
+        <div class="answer-inputs">
+          <div class="input-group">
+            <label>Root 1 — Western Foundation (x₁, metres)</label>
+            <input type="number" id="ans1" placeholder="e.g. −3.24" step="0.01">
+          </div>
+          <div class="input-group">
+            <label>Root 2 — Eastern Foundation (x₂, metres)</label>
+            <input type="number" id="ans2" placeholder="e.g. 123.24" step="0.01">
+          </div>
+          <div class="input-group" style="grid-column:1/-1">
+            <label>Total Span Width (x₂ − x₁, metres)</label>
+            <input type="number" id="ans3" placeholder="Difference of roots" step="0.01">
+          </div>
+          <button class="check-btn" onclick="checkAnswers()">▶ Submit to Engineering Review</button>
+          <div class="feedback-box" id="feedback"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHASE 3 -->
+  <div class="phase-card" id="phase3">
+    <div class="phase-header" onclick="togglePhase('phase3')">
+      <div class="phase-num">3</div>
+      <div>
+        <div class="phase-type">📝 Independent · Professional Writing</div>
+        <h3>Structural Report — Toronto Transportation Services</h3>
+      </div>
+      <span class="phase-chevron">▾</span>
+    </div>
+    <div class="phase-body">
+      <div class="phase-body-inner">
+        <div class="report-scaffold">
+          <p><strong>Addressed to:</strong> Toronto Transportation Services, Martin Goodman Trail Infrastructure Division</p>
+          <p><strong>Your report must include all of the following:</strong></p>
+          <p>① The exact coordinates (to 2 decimal places) for both shoreline foundation pours, with clear identification of western vs. eastern placement.<br>
+          ② The total calculated span width of the bridge arch.<br>
+          ③ A professional explanation of why the mathematically negative root is valid in the equation but requires practical interpretation when communicating with the construction crew.</p>
+        </div>
+        <textarea class="report-input" id="reportText" placeholder="Begin your professional structural report here. Address it formally to Toronto Transportation Services..." oninput="updateWordCount()"></textarea>
+        <div class="word-count" id="wordCount">0 words</div>
+
+        <div style="margin-top:14px;">
+          <div class="panel-section-title" style="margin-bottom:10px;">✅ Self-Assessment Checklist</div>
+          <div class="checklist">
+            <label class="check-item"><input type="checkbox" onchange="this.parentElement.classList.toggle('checked',this.checked)"> I stated exact decimal coordinates for both foundation points</label>
+            <label class="check-item"><input type="checkbox" onchange="this.parentElement.classList.toggle('checked',this.checked)"> I clearly identified which root is the western and which is the eastern foundation</label>
+            <label class="check-item"><input type="checkbox" onchange="this.parentElement.classList.toggle('checked',this.checked)"> I calculated and stated the total span width</label>
+            <label class="check-item"><input type="checkbox" onchange="this.parentElement.classList.toggle('checked',this.checked)"> I explained the mathematical validity of the negative root</label>
+            <label class="check-item"><input type="checkbox" onchange="this.parentElement.classList.toggle('checked',this.checked)"> I explained how the negative root must be interpreted physically for the construction crew</label>
+            <label class="check-item"><input type="checkbox" onchange="this.parentElement.classList.toggle('checked',this.checked)"> My writing is professional and addressed formally to Toronto Transportation Services</label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer>MPM2D · Principles of Mathematics · Ontario Curriculum · Quadratics Unit &nbsp;·&nbsp; Humber Bay Arch Bridge Structural Analysis Activity</footer>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────
+let A = -0.01, B = 1.2, C = 4;
+
+// ─── CANVAS DRAW ─────────────────────────────────────────────
+const canvas = document.getElementById('bridge');
+const ctx = canvas.getContext('2d');
+
+function hx(x) { return A*x*x + B*x + C; }
+
+function getXRange() {
+  const disc = B*B - 4*A*C;
+  if (disc < 0) return { xMin: -10, xMax: 130 };
+  const sq = Math.sqrt(disc);
+  const r1 = (-B + sq) / (2*A);
+  const r2 = (-B - sq) / (2*A);
+  const lo = Math.min(r1, r2);
+  const hi = Math.max(r1, r2);
+  return { xMin: lo - 15, xMax: hi + 15, r1, r2 };
+}
+
+function drawBridge() {
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+
+  const info = getXRange();
+  const { xMin, xMax } = info;
+  const xRange = xMax - xMin;
+
+  // Find max height for scaling
+  const vertX = -B / (2*A);
+  const vertY = hx(vertX);
+  const maxH = Math.max(vertY, C, 0) * 1.15;
+
+  // Map math→canvas
+  const toCanvasX = x => (x - xMin) / xRange * (W - 60) + 30;
+  const toCanvasY = y => H - 60 - (y / maxH) * (H - 100);
+
+  const waterY = toCanvasY(0);
+
+  // Sky gradient
+  const skyGrad = ctx.createLinearGradient(0,0,0,waterY);
+  skyGrad.addColorStop(0,'#0a1825');
+  skyGrad.addColorStop(1,'#112233');
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0,0,W,waterY);
+
+  // Water
+  const waterGrad = ctx.createLinearGradient(0,waterY,0,H);
+  waterGrad.addColorStop(0,'#1a4a6a');
+  waterGrad.addColorStop(1,'#0d1e2e');
+  ctx.fillStyle = waterGrad;
+  ctx.fillRect(0,waterY,W,H - waterY);
+
+  // Water shimmer
+  ctx.strokeStyle = 'rgba(79,195,247,0.07)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 8; i++) {
+    const wy = waterY + 10 + i * 12;
+    ctx.beginPath();
+    ctx.moveTo(30, wy);
+    ctx.lineTo(W - 30, wy);
+    ctx.stroke();
+  }
+
+  // Ground/bank lines
+  ctx.strokeStyle = 'rgba(176,168,152,0.4)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath();
+  ctx.moveTo(0, waterY); ctx.lineTo(W, waterY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Water level label
+  ctx.fillStyle = 'rgba(79,195,247,0.5)';
+  ctx.font = '500 10px DM Mono, monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('▸ Water Level  h = 0', 34, waterY - 5);
+
+  const disc = B*B - 4*A*C;
+  if (disc >= 0) {
+    // Draw arch fill
+    const archPath = new Path2D();
+    let started = false;
+    for (let px = 30; px <= W - 30; px += 1) {
+      const mx = xMin + (px - 30) / (W - 60) * xRange;
+      const my = hx(mx);
+      const cy = toCanvasY(my);
+      if (!started) { archPath.moveTo(px, waterY); archPath.lineTo(px, cy); started = true; }
+      else archPath.lineTo(px, cy);
+    }
+    archPath.lineTo(W - 30, waterY);
+    archPath.closePath();
+    const archGrad = ctx.createLinearGradient(0, toCanvasY(vertY), 0, waterY);
+    archGrad.addColorStop(0, 'rgba(212,168,67,0.12)');
+    archGrad.addColorStop(1, 'rgba(212,168,67,0.01)');
+    ctx.fillStyle = archGrad;
+    ctx.fill(archPath);
+
+    // Arch curve
+    ctx.beginPath();
+    ctx.strokeStyle = '#d4a843';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = 'rgba(212,168,67,0.4)';
+    ctx.shadowBlur = 8;
+    let first = true;
+    for (let px = 30; px <= W - 30; px += 1) {
+      const mx = xMin + (px - 30) / (W - 60) * xRange;
+      const my = hx(mx);
+      const cy = toCanvasY(my);
+      if (first) { ctx.moveTo(px, cy); first = false; }
+      else ctx.lineTo(px, cy);
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    const sq = Math.sqrt(disc);
+    const roots = [(-B + sq)/(2*A), (-B - sq)/(2*A)].sort((a,b) => a-b);
+    const [r1, r2] = roots;
+
+    // Foundation markers
+    for (const rx of roots) {
+      const cx2 = toCanvasX(rx);
+      const isValid = cx2 > 20 && cx2 < W - 20;
+      if (!isValid) continue;
+      // Pile
+      ctx.strokeStyle = '#c0522a';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(cx2, waterY);
+      ctx.lineTo(cx2, waterY + 22);
+      ctx.stroke();
+      // Foundation block
+      ctx.fillStyle = '#c0522a';
+      ctx.fillRect(cx2 - 12, waterY + 22, 24, 10);
+      // Dot on arch
+      ctx.beginPath();
+      ctx.arc(cx2, waterY, 7, 0, Math.PI*2);
+      ctx.fillStyle = '#4fc3f7';
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      // Label
+      ctx.fillStyle = '#4fc3f7';
+      ctx.font = '500 10px DM Mono, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`x = ${rx.toFixed(1)}`, cx2, waterY + 48);
+    }
+
+    // Vertex marker
+    const vcy = toCanvasY(vertY);
+    const vcx = toCanvasX(vertX);
+    ctx.beginPath();
+    ctx.arc(vcx, vcy, 5, 0, Math.PI*2);
+    ctx.fillStyle = '#f0c866';
+    ctx.fill();
+    // Dashed vertical from vertex to water
+    ctx.setLineDash([4,4]);
+    ctx.strokeStyle = 'rgba(240,200,102,0.3)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(vcx, vcy);
+    ctx.lineTo(vcx, waterY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // Height label
+    ctx.fillStyle = 'rgba(240,200,102,0.8)';
+    ctx.font = '500 10px DM Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`h = ${vertY.toFixed(1)} m`, vcx, vcy - 12);
+
+    // Span arrow
+    const x1c = toCanvasX(r1), x2c = toCanvasX(r2);
+    const arrowY = waterY + 65;
+    if (x1c > 20 && x2c < W - 20 && x2c - x1c > 40) {
+      ctx.strokeStyle = 'rgba(176,168,152,0.6)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x1c, arrowY); ctx.lineTo(x2c, arrowY); ctx.stroke();
+      ctx.fillStyle = 'rgba(176,168,152,0.6)';
+      ctx.font = '10px DM Mono, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`Span: ${(r2 - r1).toFixed(1)} m`, (x1c+x2c)/2, arrowY - 5);
+    }
+
+    // Update info strip
+    document.getElementById('r1').textContent = r1.toFixed(2);
+    document.getElementById('r2').textContent = r2.toFixed(2);
+    document.getElementById('span').textContent = (r2 - r1).toFixed(2);
+    document.getElementById('vx').textContent = vertX.toFixed(2);
+    document.getElementById('vy').textContent = vertY.toFixed(2);
+
+  } else {
+    // No real roots
+    ctx.beginPath();
+    ctx.strokeStyle = '#e05c5c';
+    ctx.lineWidth = 2.5;
+    let first = true;
+    for (let px = 30; px <= W - 30; px += 1) {
+      const mx = xMin + (px - 30) / (W - 60) * xRange;
+      const cy = toCanvasY(hx(mx));
+      if (first) { ctx.moveTo(px, cy); first = false; }
+      else ctx.lineTo(px, cy);
+    }
+    ctx.stroke();
+    ctx.fillStyle = '#e05c5c';
+    ctx.font = '500 12px Outfit, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('⚠ No real roots — arch does not reach water level', W/2, H/2);
+
+    document.getElementById('r1').textContent = '—';
+    document.getElementById('r2').textContent = '—';
+    document.getElementById('span').textContent = '—';
+    document.getElementById('vx').textContent = vertX.toFixed(2);
+    document.getElementById('vy').textContent = vertY.toFixed(2);
+  }
+
+  // x-axis
+  ctx.fillStyle = 'rgba(176,168,152,0.5)';
+  ctx.font = '10px DM Mono, monospace';
+  ctx.textAlign = 'center';
+  const step = Math.ceil(xRange / 8 / 10) * 10;
+  for (let x = Math.ceil(xMin / step) * step; x <= xMax; x += step) {
+    const px = toCanvasX(x);
+    if (px < 20 || px > W - 10) continue;
+    ctx.fillStyle = 'rgba(176,168,152,0.3)';
+    ctx.fillText(x, px, waterY + 16);
+    ctx.strokeStyle = 'rgba(176,168,152,0.1)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(px, 20);
+    ctx.lineTo(px, waterY);
+    ctx.stroke();
+  }
+
+  // Update info box
+  updateInfoBox(disc, vertX, vertY);
+}
+
+function updateInfoBox(disc, vx, vy) {
+  document.getElementById('iEq').textContent = `h(x) = ${A}x² + ${B}x + ${C}`;
+  document.getElementById('iMax').textContent = `${vy.toFixed(2)} m at x = ${vx.toFixed(2)} m`;
+  document.getElementById('iYint').textContent = `h(0) = ${C} m above water`;
+  document.getElementById('iDisc').textContent = `${(B*B - 4*A*C).toFixed(4)}`;
+  const discEl = document.getElementById('iDisc');
+  discEl.className = disc >= 0 ? 'val' : 'val neg';
+  document.getElementById('iRoots').textContent = disc >= 0 ? 'Yes (2 real roots)' : 'None (no foundation)';
+}
+
+// ─── SLIDERS ─────────────────────────────────────────────────
+function syncSliders() {
+  A = parseFloat(document.getElementById('slA').value);
+  B = parseFloat(document.getElementById('slB').value);
+  C = parseFloat(document.getElementById('slC').value);
+  document.getElementById('aVal').textContent = A.toFixed(3);
+  document.getElementById('bVal').textContent = B.toFixed(2);
+  document.getElementById('cVal').textContent = C.toFixed(1);
+  drawBridge();
+}
+document.getElementById('slA').oninput = syncSliders;
+document.getElementById('slB').oninput = syncSliders;
+document.getElementById('slC').oninput = syncSliders;
+
+function resetToDesign() {
+  document.getElementById('slA').value = -0.01;
+  document.getElementById('slB').value = 1.2;
+  document.getElementById('slC').value = 4;
+  syncSliders();
+}
+
+// ─── PHASE TOGGLE ─────────────────────────────────────────────
+function togglePhase(id) {
+  const card = document.getElementById(id);
+  card.classList.toggle('open');
+}
+
+// ─── REVEAL HINTS ─────────────────────────────────────────────
+function revealHint(btn) {
+  const hint = btn.nextElementSibling;
+  hint.classList.toggle('show');
+  btn.textContent = hint.classList.contains('show') ? 'Hide Hint' : 'Reveal Hint';
+}
+
+// ─── ANSWER CHECKING ─────────────────────────────────────────
+function checkAnswers() {
+  const disc = B*B - 4*A*C;
+  const sq = Math.sqrt(Math.max(disc, 0));
+  const roots = [(-B + sq)/(2*A), (-B - sq)/(2*A)].sort((a,b) => a-b);
+  const trueR1 = roots[0], trueR2 = roots[1];
+  const trueSpan = trueR2 - trueR1;
+
+  const a1 = parseFloat(document.getElementById('ans1').value);
+  const a2 = parseFloat(document.getElementById('ans2').value);
+  const a3 = parseFloat(document.getElementById('ans3').value);
+
+  const tol = 0.5;
+  const ok1 = !isNaN(a1) && Math.abs(a1 - trueR1) < tol;
+  const ok2 = !isNaN(a2) && Math.abs(a2 - trueR2) < tol;
+  const ok3 = !isNaN(a3) && Math.abs(a3 - trueSpan) < tol;
+
+  document.getElementById('ans1').className = isNaN(a1) ? '' : ok1 ? 'correct' : 'wrong';
+  document.getElementById('ans2').className = isNaN(a2) ? '' : ok2 ? 'correct' : 'wrong';
+  document.getElementById('ans3').className = isNaN(a3) ? '' : ok3 ? 'correct' : 'wrong';
+
+  const fb = document.getElementById('feedback');
+  fb.classList.add('show');
+  if (ok1 && ok2 && ok3) {
+    fb.className = 'feedback-box show ok';
+    fb.innerHTML = `✅ <strong>Engineering Review: Approved.</strong><br>Correct foundation coordinates confirmed. Root 1 (western): x ≈ ${trueR1.toFixed(2)} m, Root 2 (eastern): x ≈ ${trueR2.toFixed(2)} m. Total span: ${trueSpan.toFixed(2)} m. Proceed to drafting the structural report in Phase 3.`;
+  } else {
+    fb.className = 'feedback-box show err';
+    let msg = '⚠ <strong>Engineering Review: Revision Required.</strong><br>';
+    if (!ok1) msg += `Root 1 is incorrect. Check your discriminant and ensure you applied the ± correctly. `;
+    if (!ok2) msg += `Root 2 needs revision. Remember to evaluate both + and − cases. `;
+    if (!ok3) msg += `The span width should be x₂ − x₁ (the positive difference). `;
+    fb.innerHTML = msg;
+  }
+}
+
+// ─── WORD COUNT ────────────────────────────────────────────────
+function updateWordCount() {
+  const text = document.getElementById('reportText').value.trim();
+  const count = text ? text.split(/\s+/).length : 0;
+  document.getElementById('wordCount').textContent = `${count} word${count !== 1 ? 's' : ''}`;
+}
+
+// ─── INIT ─────────────────────────────────────────────────────
+drawBridge();
+// Open Phase 1 by default
+document.getElementById('phase1').classList.add('open');
+</script>
+</body>
+</html>
